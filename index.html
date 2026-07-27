@@ -237,14 +237,11 @@
   .doc-view{min-height:100vh;}
   .toolbar{
     position:sticky; top:0; z-index:50;
-    background:rgba(10,14,24,.94);
-    -webkit-backdrop-filter:blur(10px);
+    background:rgba(10,14,24,.85);
     backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
     padding:12px 20px;
     display:flex; align-items:center; gap:14px;
-    flex-wrap:wrap;
-    row-gap:8px;
   }
   .tb-back{
     display:flex; align-items:center; gap:7px;
@@ -267,7 +264,6 @@
     font-size:12px; color:var(--ink-faint); display:none;
   }
   @media (min-width:640px){ .tb-hint{display:inline;} }
-  @media (max-width:420px){ .tb-pill{display:none;} }
   .tb-pdf{
     display:flex; align-items:center; gap:8px;
     background:linear-gradient(180deg, var(--orange), #ee6417);
@@ -344,14 +340,11 @@
     font-family:var(--sans); font-size:11.5px; font-weight:700;
     padding:7px 12px; border-radius:8px; cursor:pointer;
     display:flex; align-items:center; gap:6px;
-    opacity:.85; transform:none;
+    opacity:0; transform:translateY(4px);
     transition:opacity .18s ease, transform .18s ease;
   }
+  .photo-wrap:hover .photo-replace, .photo-replace:focus-visible{opacity:1; transform:translateY(0);}
   .photo-replace svg{width:13px;height:13px; flex:none;}
-  @media (hover:hover) and (pointer:fine){
-    .photo-replace{opacity:0; transform:translateY(4px);}
-    .photo-wrap:hover .photo-replace, .photo-replace:focus-visible{opacity:1; transform:translateY(0);}
-  }
 
   .intro-card{
     background:var(--paper-2);
@@ -499,25 +492,6 @@
   .calc-result{font-family:var(--mono); font-size:22px; font-weight:800; color:#fff;}
   .calc-result .cur{font-size:14px; color:var(--orange-2); margin-left:4px;}
   .calc-breakdown{margin-top:10px; font-size:12px; color:#9aa2b8; line-height:1.7; font-family:var(--mono);}
-
-  /* iOS Safari zooms the page in when a focused field's font-size is under 16px -
-     bump editable fields to 16px on small screens so tapping in stays put */
-  @media (max-width:640px){
-    [contenteditable="true"]{font-size:16px !important; line-height:1.5;}
-    .calc-field input, .calc-field select{font-size:16px !important;}
-  }
-
-  /* lightweight toast for mobile PDF-save guidance */
-  .toast{
-    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
-    background:#12192b; color:#f1f2f7; border:1px solid rgba(255,122,48,.4);
-    padding:13px 20px; border-radius:11px; font-size:13.5px; font-family:var(--sans);
-    box-shadow:0 16px 34px -10px rgba(0,0,0,.55);
-    opacity:0; transition:opacity .25s ease, transform .25s ease;
-    z-index:999; max-width:88vw; text-align:center; line-height:1.5;
-    pointer-events:none;
-  }
-  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
@@ -1108,26 +1082,6 @@ document.getElementById('global-file-input').addEventListener('change', function
   e.target.value = '';
 });
 
-/* ---- mobile helpers ---- */
-function isIOS(){
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-var toastTimer = null;
-function showToast(msg, duration){
-  var t = document.getElementById('toast');
-  if(!t){
-    t = document.createElement('div');
-    t.id = 'toast';
-    t.className = 'toast';
-    document.body.appendChild(t);
-  }
-  t.textContent = msg;
-  requestAnimationFrame(function(){ t.classList.add('show'); });
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, duration || 4500);
-}
-
 /* ---- PDF export ---- */
 async function exportPdf(docKey, btn){
   var originalText = btn.innerHTML;
@@ -1164,17 +1118,7 @@ async function exportPdf(docKey, btn){
     var pdfHeight = canvas.height * pdfWidth / canvas.width;
     var pdf = new jsPDF({orientation: 'p', unit: 'mm', format: [pdfWidth, pdfHeight]});
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-    var filename = 'FFBASE_' + (docKey === 'fbs' ? 'FBS' : 'Cross-docking') + '.pdf';
-
-    if(isIOS()){
-      // iOS Safari does not reliably auto-download blobs - open the PDF in a new tab
-      // instead, where Safari's own viewer lets the person tap Share -> Save to Files.
-      var blobUrl = pdf.output('bloburl');
-      window.open(blobUrl, '_blank');
-      showToast('PDF открылся в новой вкладке. Нажмите значок «Поделиться» и выберите «Сохранить в Файлы».', 6500);
-    } else {
-      pdf.save(filename);
-    }
+    pdf.save('FFBASE_' + (docKey === 'fbs' ? 'FBS' : 'Cross-docking') + '.pdf');
   } catch(e){
     alert('Не удалось сформировать PDF: ' + e.message);
   } finally {
