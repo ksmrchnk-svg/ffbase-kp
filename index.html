@@ -477,6 +477,19 @@
     font-weight:800; border-top:2px solid rgba(0,0,0,.22);
     background:rgba(255,122,48,.09) !important;
   }
+  .add-row-tr td{text-align:center; padding:12px 14px; border-top:1px solid rgba(0,0,0,.06);}
+  .add-row-btn, .add-city-btn{
+    background:transparent; border:1.5px dashed rgba(164,70,15,.4); color:#a4460f;
+    font-weight:700; font-size:12.5px; padding:8px 18px; border-radius:9px; cursor:pointer;
+    font-family:var(--sans); transition:background .15s ease, border-color .15s ease;
+  }
+  .add-row-btn:hover, .add-city-btn:hover{background:rgba(255,122,48,.08); border-color:rgba(255,122,48,.7);}
+  .add-city-wrap{text-align:center; margin-top:14px;}
+  .row-remove{
+    margin-left:8px; background:transparent; border:none; color:#b3392f; font-size:15px;
+    cursor:pointer; font-weight:800; padding:0 3px; vertical-align:middle; line-height:1;
+  }
+  .row-remove:hover{color:#e04b3d;}
   .calc-sub{font-size:12.5px; color:#9aa2b8; margin:2px 0 18px;}
   .calc-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px;}
   .calc-field label{display:block; font-size:11.5px; color:#9aa2b8; margin-bottom:6px; font-family:var(--mono); letter-spacing:.02em;}
@@ -650,7 +663,7 @@
             <h2 class="sec">Тарифы на услуги</h2>
             <table class="tariff">
               <thead><tr><th>Наименование услуги</th><th>Стоимость</th></tr></thead>
-              <tbody>
+              <tbody id="fbs-tariff-body">
                 <tr>
                   <td contenteditable="true">Механизированные погрузочно-разгрузочные работы (Паллет)</td>
                   <td class="price-cell"><span class="price-value" id="price-fbs-pallet" contenteditable="true">250</span> <span class="unit">₽ / шт.</span></td>
@@ -666,6 +679,13 @@
                 <tr>
                   <td contenteditable="true">Сборка, маркировка и доставка заказа до маркетплейса<span class="svc-note" contenteditable="true">(Осуществляется по мере поступления заказов)</span></td>
                   <td class="price-cell"><span class="price-value" id="price-fbs-assembly" contenteditable="true">20</span> <span class="unit">₽ / шт.</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">Хранение</td>
+                  <td class="price-cell"><span class="price-value" id="price-fbs-storage" contenteditable="true">27,5</span> <span class="unit">₽ / м³ / сутки</span></td>
+                </tr>
+                <tr class="add-row-tr no-export">
+                  <td colspan="2"><button type="button" class="add-row-btn" onclick="addTariffRow('fbs-tariff-body','₽ / шт.')">+ Добавить услугу</button></td>
                 </tr>
               </tbody>
             </table>
@@ -762,6 +782,14 @@
             <label>Заказы к отправке, шт/мес</label>
             <input type="number" min="0" id="qty-fbs-assembly" value="0">
           </div>
+          <div class="calc-field">
+            <label>Объём на хранении, м³</label>
+            <input type="number" min="0" step="0.1" id="qty-fbs-storage-vol" value="0">
+          </div>
+          <div class="calc-field">
+            <label>Срок хранения, суток</label>
+            <input type="number" min="0" id="qty-fbs-storage-days" value="0">
+          </div>
         </div>
         <div class="calc-actions">
           <button class="calc-btn" onclick="calcFbs()">Рассчитать</button>
@@ -819,7 +847,7 @@
             <h2 class="sec">Вспомогательные работы на складе ФФ</h2>
             <table class="tariff">
               <thead><tr><th>Наименование услуги</th><th>Стоимость</th></tr></thead>
-              <tbody>
+              <tbody id="cross-tariff-body">
                 <tr>
                   <td contenteditable="true">Механизированные погрузочно-разгрузочные работы (1 паллет)</td>
                   <td class="price-cell"><span class="price-value" id="price-cross-pallet" contenteditable="true">250,00</span> <span class="unit">₽ / шт.</span></td>
@@ -835,6 +863,9 @@
                 <tr>
                   <td contenteditable="true">Паллетирование (сборка, стрейч, замотка, паллет)</td>
                   <td class="price-cell"><span class="price-value" id="price-cross-wrap" contenteditable="true">500,00</span> <span class="unit">₽ / шт.</span></td>
+                </tr>
+                <tr class="add-row-tr no-export">
+                  <td colspan="2"><button type="button" class="add-row-btn" onclick="addTariffRow('cross-tariff-body','₽ / шт.')">+ Добавить услугу</button></td>
                 </tr>
               </tbody>
             </table>
@@ -915,6 +946,9 @@
                   </tbody>
                 </table>
               </div>
+            </div>
+            <div class="add-city-wrap no-export">
+              <button type="button" class="add-city-btn" onclick="addDeliveryCity()">+ Добавить направление</button>
             </div>
           </div>
 
@@ -1098,8 +1132,9 @@ function buildSummaryNode(rows, total){
   var html = '<div class="section pdf-summary-block"><h2 class="sec">Расчёт по параметрам заказчика</h2>' +
     '<table class="tariff"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Сумма</th></tr></thead><tbody>';
   rows.forEach(function(r){
+    var unitLabel = r.unit || 'шт.';
     html += '<tr><td>' + r.label + '</td>' +
-      '<td style="text-align:right;font-family:var(--mono);white-space:nowrap;">' + fmt(r.qty) + ' шт.</td>' +
+      '<td style="text-align:right;font-family:var(--mono);white-space:nowrap;">' + fmt(r.qty) + ' ' + unitLabel + '</td>' +
       '<td class="price-cell">' + fmt(r.subtotal) + ' <span class="unit">₽</span></td></tr>';
   });
   html += '<tr class="total-row"><td colspan="2" style="text-align:right;">Итого</td>' +
@@ -1108,6 +1143,87 @@ function buildSummaryNode(rows, total){
   var wrapper = document.createElement('div');
   wrapper.innerHTML = html;
   return wrapper.firstElementChild;
+}
+
+/* ---- add/remove rows in the editor (UI-only controls, added content is real) ---- */
+var customFieldCounter = 1;
+var customCityCounter = 1;
+
+function escapeHtml(s){
+  var div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function addTariffRow(tbodyId, unitLabel){
+  var tbody = byId(tbodyId);
+  if(!tbody) return;
+  var addRowTr = tbody.querySelector('.add-row-tr');
+  var priceId = 'price-custom-' + (customFieldCounter++);
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td contenteditable="true">Новая услуга</td>' +
+    '<td class="price-cell"><span class="price-value" id="' + priceId + '" contenteditable="true">0</span> ' +
+    '<span class="unit">' + unitLabel + '</span>' +
+    '<button type="button" class="row-remove no-export" title="Удалить строку" onclick="this.closest(\'tr\').remove()">\u00d7</button></td>';
+  tbody.insertBefore(tr, addRowTr);
+  var nameCell = tr.querySelector('[contenteditable]');
+  if(nameCell) nameCell.focus();
+}
+
+function addDeliveryCity(){
+  var cityName = prompt('Название направления (города):', '');
+  if(!cityName || !cityName.trim()) return;
+  cityName = cityName.trim();
+  var slug = 'custom' + (customCityCounter++);
+
+  var palletBody = byId('tbl-pallet-cross');
+  var boxBody = byId('tbl-box-cross');
+  if(!palletBody || !boxBody) return;
+
+  var safeName = escapeHtml(cityName);
+
+  var palletTr = document.createElement('tr');
+  palletTr.innerHTML =
+    '<td class="city-cell" contenteditable="true">' + safeName + '</td>' +
+    '<td><span class="price-value" id="price-del-' + slug + '-pallet" contenteditable="true">0</span> \u20bd' +
+    '<button type="button" class="row-remove no-export" title="Удалить направление" onclick="removeCityRow(\'' + slug + '\')">\u00d7</button></td>';
+  palletBody.appendChild(palletTr);
+
+  var boxTr = document.createElement('tr');
+  boxTr.innerHTML =
+    '<td class="city-cell" contenteditable="true">' + safeName + '</td>' +
+    '<td><span class="price-value" id="price-del-' + slug + '-box" contenteditable="true">0</span> \u20bd' +
+    '<button type="button" class="row-remove no-export" title="Удалить направление" onclick="removeCityRow(\'' + slug + '\')">\u00d7</button></td>';
+  boxBody.appendChild(boxTr);
+
+  var option = document.createElement('option');
+  option.value = slug;
+  option.textContent = cityName;
+  byId('city-select').appendChild(option);
+
+  var palletCell = palletTr.querySelector('.city-cell');
+  var boxCell = boxTr.querySelector('.city-cell');
+  palletCell.addEventListener('input', function(){
+    boxCell.textContent = palletCell.textContent;
+    option.textContent = palletCell.textContent;
+  });
+  boxCell.addEventListener('input', function(){
+    palletCell.textContent = boxCell.textContent;
+    option.textContent = boxCell.textContent;
+  });
+
+  palletCell.focus();
+}
+
+function removeCityRow(slug){
+  var p = byId('price-del-' + slug + '-pallet');
+  var b = byId('price-del-' + slug + '-box');
+  if(p){ var ptr = p.closest('tr'); if(ptr) ptr.remove(); }
+  if(b){ var btr = b.closest('tr'); if(btr) btr.remove(); }
+  var sel = byId('city-select');
+  var opt = sel ? sel.querySelector('option[value="' + slug + '"]') : null;
+  if(opt) opt.remove();
 }
 
 /* ---- photo replace ---- */
